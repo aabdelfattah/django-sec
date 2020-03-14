@@ -31,7 +31,7 @@ class Namespace(models.Model):
     """
     Represents an XBRL namespace used to segment attribute names.
     """
-    
+
     name = models.CharField(
         # Causes MySQL error:
         # Specified key was too long; max key length is 767 bytes
@@ -42,41 +42,41 @@ class Namespace(models.Model):
         null=False,
         #db_index=True,
         unique=True)
-    
+
     class Meta:
         app_label = APP_LABEL
-    
+
     def __unicode__(self):
         return self.name
 
 class UnitManager(models.Manager):
-    
+
     def get_by_natural_key(self, name, *true_unit_nk):
-        
+
         true_unit = None
         if true_unit_nk:
             true_unit = Unit.objects.get_by_natural_key(*true_unit_nk)
-            
+
         u, _ = Unit.objects.get_or_create(name=name)
         u.true_unit = true_unit
         u.save()
-        
+
         return u
 
 class Unit(models.Model):
     """
     Represents a numeric unit.
     """
-    
+
     objects = UnitManager()
-    
+
     name = models.CharField(
         max_length=50,
         blank=False,
         null=False,
         db_index=True,
         unique=True)
-    
+
     true_unit = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -84,27 +84,27 @@ class Unit(models.Model):
         null=True,
         help_text=_('''Points the the unit record this record duplicates.
             Points to itself if this is the master unit.'''))
-    
+
     master = models.BooleanField(
         default=True,
         editable=False,
         help_text=_('If true, indicates this unit is the master referred to by duplicates.'))
-    
+
     class Meta:
         app_label = APP_LABEL
         ordering = (
             'name',
         )
-    
+
     def __unicode__(self):
         return self.name
-    
+
     def natural_key(self):
         parts = (self.name,)
         if self.true_unit != self:
             parts += self.true_unit.natural_key()
-        return parts 
-        
+        return parts
+
     def save(self, *args, **kwargs):
         assert self.name.strip()
         if self.id:
@@ -113,7 +113,7 @@ class Unit(models.Model):
         if self.id:
             assert self.true_unit.master
         super(Unit, self).save(*args, **kwargs)
-    
+
     @classmethod
     def do_update(cls, *args, **kwargs):
         q = cls.objects.filter(true_unit__isnull=True)
@@ -124,29 +124,29 @@ class Attribute(models.Model):
     """
     Represents a financial attribute tag.
     """
-    
-    namespace = models.ForeignKey('Namespace')
-    
+
+    namespace = models.ForeignKey('Namespace', on_delete=models.PROTECT)
+
     name = models.CharField(
         max_length=200,
         blank=False,
         null=False,
         db_index=True)
-    
+
     load = models.BooleanField(
         default=False,
         db_index=True,
         help_text=_('If checked, all values will be loaded for this attribute.'))
-    
+
     total_values = models.PositiveIntegerField(
         blank=True,
         null=True,
         editable=True)
-    
+
     total_values_fresh = models.BooleanField(
         default=False,
         verbose_name='fresh')
-    
+
     class Meta:
         app_label = APP_LABEL
         unique_together = (
@@ -155,10 +155,10 @@ class Attribute(models.Model):
         index_together = (
             ('namespace', 'name'),
         )
-    
+
     def __unicode__(self):
         return '{%s}%s' % (self.namespace, self.name)
-    
+
     @classmethod
     def do_update(cls, *args, **kwargs):
         verbose = kwargs.pop('verbose', False)
@@ -179,11 +179,11 @@ class Attribute(models.Model):
             print('\n')
 
 class AttributeValue(models.Model):
-    
-    company = models.ForeignKey('Company', related_name='attributes')
-    
-    attribute = models.ForeignKey('Attribute', related_name='values')
-    
+
+    company = models.ForeignKey('Company', related_name='attributes', on_delete=models.PROTECT)
+
+    attribute = models.ForeignKey('Attribute', related_name='values', on_delete=models.PROTECT)
+
     # Inspecting several XBRL samples, no digits above 12 characters
     # or decimals above 5 were found, so I've started there and added
     # a little more to handle future increases.
@@ -192,9 +192,9 @@ class AttributeValue(models.Model):
         decimal_places=c.MAX_DECIMALS,
         blank=False,
         null=False)
-    
-    unit = models.ForeignKey('Unit')
-    
+
+    unit = models.ForeignKey('Unit', on_delete=models.PROTECT)
+
     start_date = models.DateField(
         blank=False,
         null=False,
@@ -202,18 +202,18 @@ class AttributeValue(models.Model):
         help_text=_('''If attribute implies a duration, this is the date
             the duration begins. If the attribute implies an instance, this
             is the exact date it applies to.'''))
-    
+
     end_date = models.DateField(
         blank=True,
         null=True,
         help_text=_('''If this attribute implies a duration, this is the date
             the duration ends.'''))
-    
+
     filing_date = models.DateField(
         blank=False,
         null=False,
         help_text=_('The date this information became publically available.'))
-    
+
     class Meta:
         app_label = APP_LABEL
         ordering = ('-attribute__total_values', '-start_date', 'attribute__name')
@@ -223,7 +223,7 @@ class AttributeValue(models.Model):
         index_together = (
             ('company', 'attribute', 'start_date'),
         )
-        
+
     def __unicode__(self):
         return '%s %s=%s %s on %s' % (
             self.company,
@@ -234,27 +234,27 @@ class AttributeValue(models.Model):
         )
 
 class IndexFile(models.Model):
-    
+
     year = models.IntegerField(
         blank=False,
         null=False,
         db_index=True)
-    
+
     quarter = models.IntegerField(
         blank=False,
         null=False,
         db_index=True)
-    
+
     filename = models.CharField(max_length=100, blank=False, null=False)
-    
+
     total_rows = models.PositiveIntegerField(blank=True, null=True)
-    
+
     processed_rows = models.PositiveIntegerField(blank=True, null=True)
-    
+
     downloaded = models.DateTimeField(blank=True, null=True)
-    
+
     processed = models.DateTimeField(blank=True, null=True)
-    
+
     class Meta:
         app_label = APP_LABEL
         ordering = ('year', 'quarter')
@@ -268,20 +268,20 @@ class Company(models.Model):
         db_index=True,
         primary_key=True,
         help_text=_('Central index key that uniquely identifies a filing entity.'))
-    
+
     name = models.CharField(
         max_length=100,
         db_index=True,
         blank=False,
         null=False,
         help_text=_('The name of the company.'))
-    
+
     load = models.BooleanField(
         default=False,
         db_index=True,
         help_text=_('If checked, all values for load-enabled attributes '
             'will be loaded for this company.'))
-    
+
     min_date = models.DateField(
         blank=True,
         null=True,
@@ -289,7 +289,7 @@ class Company(models.Model):
         db_index=True,
         help_text=_('''The oldest date of associated SEC Edgar filings
             for this company.'''))
-    
+
     max_date = models.DateField(
         blank=True,
         null=True,
@@ -297,24 +297,24 @@ class Company(models.Model):
         db_index=True,
         help_text=_('''The most recent date of associated SEC Edgar filings
             for this company.'''))
-    
+
     class Meta:
         app_label = APP_LABEL
         verbose_name_plural = _('companies')
-    
+
     def __unicode__(self):
         return self.name
-    
+
     def save(self, *args, **kwargs):
         if self.cik:
             try:
                 old = type(self).objects.get(cik=self.cik)
-                
+
                 aggs = self.attributes.all()\
                     .aggregate(Min('start_date'), Max('start_date'))
                 self.min_date = aggs['start_date__min']
                 self.max_date = aggs['start_date__max']
-                
+
                 if not old.load and self.load:
                     # If we just flag this company for loading then
                     # flag this company's indexes for loading.
@@ -324,44 +324,45 @@ class Company(models.Model):
             except type(self).DoesNotExist:
                 pass
         super(Company, self).save(*args, **kwargs)
-    
+
 class Index(models.Model):
-    
+
     company = models.ForeignKey(
         'Company',
-        related_name='filings')
-    
+        related_name='filings',
+        on_delete=models.PROTECT)
+
     form = models.CharField(
         max_length=10,
         blank=True,
         db_index=True,
         verbose_name=_('form type'),
         help_text=_('The type of form the document is classified as.'))
-    
+
     date = models.DateField(
         blank=False,
         null=False,
         db_index=True,
         verbose_name=_('date filed'),
         help_text=_('The date the item was filed with the SEC.'))
-    
+
     filename = models.CharField(
         max_length=100,
         blank=False,
         null=False,
         db_index=True,
         help_text=_('The name of the associated financial filing.'))
-    
+
     year = models.IntegerField(
         blank=False,
         null=False,
         db_index=True)
-    
+
     quarter = models.IntegerField(
         blank=False,
         null=False,
         db_index=True)
-    
+
     _ticker = models.CharField(
         max_length=50,
         db_index=True,
@@ -371,16 +372,16 @@ class Index(models.Model):
         null=True,
         help_text=_('''Caches the trading symbol if one is detected in the
             filing during attribute load.'''))
-    
+
     attributes_loaded = models.BooleanField(default=False, db_index=True)
-    
+
     valid = models.BooleanField(
         default=True,
         db_index=True,
         help_text=_('If false, errors were encountered trying to parse the associated files.'))
-    
+
     error = models.TextField(blank=True, null=True)
-    
+
     class Meta:
         app_label = APP_LABEL
         verbose_name_plural = _('indexes')
@@ -395,14 +396,14 @@ class Index(models.Model):
             ('company', 'date', 'filename'),
         )
         ordering = ('-date', 'filename')
-    
+
     def xbrl_link(self):
         if self.form.startswith('10-K') or self.form.startswith('10-Q'):
             _id = self.filename.split('/')[-1][:-4]
             return 'http://www.sec.gov/Archives/edgar/data/%s/%s/%s-xbrl.zip' \
                 % (self.company.cik, _id.replace('-', ''), _id)
         return
-        
+
     def html_link(self):
         return 'http://www.sec.gov/Archives/%s' % self.filename
 
@@ -410,25 +411,25 @@ class Index(models.Model):
         _id = self.filename.split('/')[-1][:-4]
         return 'http://www.sec.gov/Archives/edgar/data/%s/%s/%s-index.htm' \
             % (self.company.cik, _id.replace('-', ''), _id)
-        
+
     def txt(self):
         return self.filename.split('/')[-1]
-        
+
     def localfile(self):
         filename = '%s/%s/%s/%s' % (DATA_DIR, self.company.cik, self.txt()[:-4], self.txt())
         if os.path.exists(filename):
             return filename
         return
-        
+
     def localpath(self):
         return '%s/%s/%s/' % (DATA_DIR, self.company.cik, self.txt()[:-4])
 
     def localcik(self):
         return '%s/%s/' % (DATA_DIR, self.company.cik)
-    
+
     def html(self):
         filename = self.localfile()
-        if not filename: 
+        if not filename:
             return
         f = open(filename, 'r').read()
         f_lower = f.lower()
@@ -439,22 +440,22 @@ class Index(models.Model):
             return f
 
     def download(self, verbose=False):
-        
+
         d = self.localcik()
         if not os.path.isdir(d):
             os.makedirs(d)
-            
+
         d = self.localpath()
         if not os.path.isdir(d):
             os.makedirs(d)
 
         os.chdir(self.localpath())
-        
+
 #         html_link = self.html_link()
         xbrl_link = self.xbrl_link()
         if verbose:
             print('xbrl_link:', xbrl_link)
-        
+
         if xbrl_link:
             if not os.path.exists(xbrl_link.split('/')[-1]):
                 #urlopen(xbrl_link)
@@ -501,7 +502,7 @@ class Index(models.Model):
         x.fields['SECFilingPage'] = self.index_link()
         x.fields['LinkToXBRLInstance'] = self.xbrl_link()
         return x
-        
+
     def ticker(self):
         """
         Retrieves the company's stock ticker from an XML filing.

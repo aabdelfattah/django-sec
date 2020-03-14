@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.contenttypes.models import ContentType
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 
 try:
     from admin_steroids.queryset import ApproxCountQuerySet
@@ -11,11 +11,11 @@ from . import forms
 from . import models
 
 class NamespaceAdmin(admin.ModelAdmin):
-    
+
     list_display = (
         'name',
     )
-    
+
     search_fields = (
         'name',
     )
@@ -25,43 +25,43 @@ admin.site.register(
     NamespaceAdmin)
 
 class UnitAliasInlineAdmin(admin.TabularInline):
-    
+
     model = models.Unit
-    
+
     extra = 0
     max_num = 0
     can_delete = False
-    
+
     list_display = (
         'name',
     )
-    
+
     readonly_fields = (
         'name',
     )
 
 class UnitAdmin(admin.ModelAdmin):
-    
+
     form = forms.UnitChangeForm
-    
+
     list_display = (
         'name',
         'true_unit',
         'master',
     )
-    
+
     list_filter = (
         'master',
     )
-    
+
     readonly_fields = (
         'master',
     )
-    
+
     search_fields = (
         'name',
     )
-    
+
     inlines = (
         UnitAliasInlineAdmin,
     )
@@ -71,7 +71,7 @@ admin.site.register(
     UnitAdmin)
 
 class AttributeAdmin(admin.ModelAdmin):
-    
+
     list_display = (
         'name',
         'namespace',
@@ -79,30 +79,30 @@ class AttributeAdmin(admin.ModelAdmin):
         'total_values_fresh',
         'total_values',
     )
-    
+
     list_filter = (
         'load',
         'total_values_fresh',
     )
-    
+
     search_fields = (
         'name',
     )
-    
+
     readonly_fields = (
         'total_values',
     )
-    
+
     actions = (
         'enable_load',
         'disable_load',
         'refresh_total_values',
     )
-    
+
     def queryset(self, *args, **kwargs):
         # Deprecated in Django 1.7.
         return self.get_queryset(*args, **kwargs)
-        
+
     def get_queryset(self, *args, **kwargs):
         try:
             qs = super(AttributeAdmin, self).get_queryset(*args, **kwargs)
@@ -111,16 +111,16 @@ class AttributeAdmin(admin.ModelAdmin):
         if ApproxCountQuerySet:
             qs = qs._clone(klass=ApproxCountQuerySet)
         return qs
-    
+
     def enable_load(self, request, queryset):
         models.Attribute.objects.filter(id__in=queryset).update(load=True)
         models.Index.objects.filter(attributes_loaded=True).update(attributes_loaded=False)
     enable_load.short_description = 'Enable value loading of selected %(verbose_name_plural)s'
-    
+
     def disable_load(self, request, queryset):
         models.Attribute.objects.filter(id__in=queryset).update(load=False)
     disable_load.short_description = 'Disable value loading of selected %(verbose_name_plural)s'
-    
+
     def refresh_total_values(self, request, queryset):
         queryset.update(total_values_fresh=False)
         models.Attribute.do_update()
@@ -132,7 +132,7 @@ admin.site.register(
     AttributeAdmin)
 
 class AttributeValueAdmin(admin.ModelAdmin):
-    
+
     list_display = (
         'company_name',
         'attribute_name',
@@ -143,32 +143,32 @@ class AttributeValueAdmin(admin.ModelAdmin):
         'filing_date',
         'attribute_total_values',
     )
-    
+
     raw_id_fields = (
         'company',
         'attribute',
     )
-    
+
     search_fields = (
         'company__name',
         'attribute__name',
     )
-    
+
     readonly_fields = (
         'company_name',
         'attribute_name',
         'attribute_total_values',
         'true_unit',
     )
-    
+
     exclude = (
         'unit',
     )
-    
+
     def queryset(self, *args, **kwargs):
         # Deprecated in Django 1.7.
         return self.get_queryset(*args, **kwargs)
-    
+
     def get_queryset(self, *args, **kwargs):
         try:
             qs = super(AttributeValueAdmin, self).get_queryset(*args, **kwargs)
@@ -177,23 +177,23 @@ class AttributeValueAdmin(admin.ModelAdmin):
         if ApproxCountQuerySet:
             qs = qs._clone(klass=ApproxCountQuerySet)
         return qs
-    
+
     def true_unit(self, obj=None):
         if not obj:
             return ''
         return obj.unit.true_unit
     true_unit.short_description = 'unit'
-    
+
     def company_name(self, obj=None):
         if not obj:
             return ''
         return obj.company.name
-    
+
     def attribute_name(self, obj=None):
         if not obj:
             return ''
         return obj.attribute.name
-    
+
     def attribute_total_values(self, obj=None):
         if not obj:
             return ''
@@ -205,7 +205,7 @@ admin.site.register(
     AttributeValueAdmin)
 
 class CompanyAdmin(admin.ModelAdmin):
-    
+
     list_display = (
         'cik',
         'name',
@@ -213,17 +213,17 @@ class CompanyAdmin(admin.ModelAdmin):
         'max_date',
         'load',
     )
-    
+
     list_filter = (
         'load',
     )
-    
+
     search_fields = (
         'cik',
         'name',
         #'filings___ticker',
     )
-    
+
     readonly_fields = (
         'cik',
         'name',
@@ -232,19 +232,19 @@ class CompanyAdmin(admin.ModelAdmin):
         'min_date',
         'max_date',
     )
-    
+
     actions = (
         'enable_load',
         'disable_load',
     )
-    
+
     def lookup_allowed(self, key, value):
         return True
-    
+
     def queryset(self, *args, **kwargs):
         # Deprecated in Django 1.7.
         return self.get_queryset(*args, **kwargs)
-        
+
     def get_queryset(self, *args, **kwargs):
         try:
             qs = super(CompanyAdmin, self).get_queryset(*args, **kwargs)
@@ -253,18 +253,18 @@ class CompanyAdmin(admin.ModelAdmin):
         if ApproxCountQuerySet:
             qs = qs._clone(klass=ApproxCountQuerySet)
         return qs
-    
+
     def enable_load(self, request, queryset):
         models.Company.objects.filter(cik__in=queryset).update(load=True)
         models.Index.objects\
             .filter(company__cik__in=queryset, attributes_loaded=True)\
             .update(attributes_loaded=False)
     enable_load.short_description = 'Enable attribute loading of selected %(verbose_name_plural)s'
-    
+
     def disable_load(self, request, queryset):
         models.Company.objects.filter(cik__in=queryset).update(load=False)
     disable_load.short_description = 'Disable attribute loading of selected %(verbose_name_plural)s'
-    
+
     def filings_link(self, obj=None):
         if not obj:
             return ''
@@ -275,7 +275,7 @@ class CompanyAdmin(admin.ModelAdmin):
         return '<a href="%s" target="_blank" class="button">View %i</a>' % (url, count)
     filings_link.short_description = 'filings'
     filings_link.allow_tags = True
-    
+
     def values_link(self, obj=None):
         if not obj:
             return ''
@@ -292,7 +292,7 @@ admin.site.register(
     CompanyAdmin)
 
 class IndexFileAdmin(admin.ModelAdmin):
-    
+
     list_display = (
         'year',
         'quarter',
@@ -302,19 +302,19 @@ class IndexFileAdmin(admin.ModelAdmin):
         'downloaded',
         'processed',
     )
-    
+
     readonly_fields = (
         'percent_processed',
     )
-    
+
     actions = (
         'mark_unprocessed',
     )
-    
+
     def queryset(self, *args, **kwargs):
         # Deprecated in Django 1.7.
         return self.get_queryset(*args, **kwargs)
-    
+
     def get_queryset(self, *args, **kwargs):
         try:
             qs = super(IndexFileAdmin, self).get_queryset(*args, **kwargs)
@@ -323,13 +323,13 @@ class IndexFileAdmin(admin.ModelAdmin):
         if ApproxCountQuerySet:
             qs = qs._clone(klass=ApproxCountQuerySet)
         return qs
-    
+
     def mark_unprocessed(self, request, queryset):
         models.IndexFile.objects\
             .filter(id__in=queryset.values_list('id', flat=True))\
             .update(processed=None, processed_rows=0)
     mark_unprocessed.short_description = 'Mark selected %(verbose_name_plural)s as unprocessed'
-    
+
     def percent_processed(self, obj=None):
         if not obj or not obj.total_rows or not obj.processed_rows:
             return ''
@@ -338,7 +338,7 @@ class IndexFileAdmin(admin.ModelAdmin):
 admin.site.register(
     models.IndexFile,
     IndexFileAdmin)
-    
+
 class IndexAdmin(admin.ModelAdmin):
     list_display = (
         'filename',
@@ -351,13 +351,13 @@ class IndexAdmin(admin.ModelAdmin):
         'attributes_loaded',
         'valid',
     )
-    
+
     search_fields = (
         'filename',
         'company__name',
         '_ticker',
     )
-    
+
     list_filter = (
         'attributes_loaded',
         'valid',
@@ -365,21 +365,21 @@ class IndexAdmin(admin.ModelAdmin):
         'quarter',
         'form',
     )
-    
+
     readonly_fields = (
         'cik',
         'xbrl_link',
     )
-    
+
     actions = (
 #        'enable',
 #        'disable',
     )
-    
+
     def queryset(self, *args, **kwargs):
         # Deprecated in Django 1.7.
         return self.get_queryset(*args, **kwargs)
-    
+
     def get_queryset(self, *args, **kwargs):
         try:
             qs = super(IndexAdmin, self).get_queryset(*args, **kwargs)
@@ -388,20 +388,20 @@ class IndexAdmin(admin.ModelAdmin):
         if ApproxCountQuerySet:
             qs = qs._clone(klass=ApproxCountQuerySet)
         return qs
-    
+
     def cik(self, obj=None):
         if not obj:
             return ''
         return obj.company.cik
     cik.admin_order_field = 'company__cik'
-    
+
     def get_readonly_fields(self, request, obj=None):
         exclude = []
         return [
             _.name for _ in self.model._meta.fields
             if _.name not in exclude
         ] + list(self.readonly_fields)
-    
+
     def get_fieldsets(self, request, obj=None):
         readonly_fields = list(self.readonly_fields)
         exclude = readonly_fields + ['id']
@@ -416,19 +416,19 @@ class IndexAdmin(admin.ModelAdmin):
             }),
         )
         return fieldsets
-    
+
     def enable(self, request, queryset):
         for r in queryset.iterator():
             r.enabled = True
             r.save()
     enable.short_description = 'Enable selected %(verbose_name_plural)s'
-    
+
     def disable(self, request, queryset):
         for r in queryset.iterator():
             r.enabled = False
             r.save()
     disable.short_description = 'Disable selected %(verbose_name_plural)s'
-    
+
 admin.site.register(
     models.Index,
     IndexAdmin)
